@@ -1,0 +1,85 @@
+apply plugin: 'net.fabricmc.fabric-loom'
+
+group = rootProject.group
+version = "${rootProject.version}+mc${minecraftVersion}"
+base { archivesName = rootProject.name }
+
+repositories {
+    maven { url = 'https://maven.isxander.dev/releases' }
+    maven { url = 'https://maven.terraformersmc.com/releases' }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        horsebreeder {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+// Additive source roots: version classes must not also exist in shared src/.
+['main', 'client'].each { name ->
+    sourceSets.named(name) {
+        java.srcDirs = [rootProject.file("src/${name}/java"), file("src/${name}/java")]
+        resources.srcDirs = [rootProject.file("src/${name}/resources"), file("src/${name}/resources")]
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraftVersion}"
+    implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
+
+    // These integrations are optional in fabric.mod.json, and present in dev runs.
+    clientCompileOnly "dev.isxander:yet-another-config-lib:${yaclVersion}"
+    clientCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+    clientRuntimeOnly "dev.isxander:yet-another-config-lib:${yaclVersion}"
+    clientRuntimeOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+}
+
+def resourceValues = [
+    version: project.version.toString(),
+    minecraft_dependency: minecraftDependency.toString(),
+    loader_version: rootProject.loader_version.toString(),
+    java_version: rootProject.java_version.toString(),
+    fabric_api_version: fabricApiVersion.toString()
+]
+tasks.named('processResources') {
+    inputs.properties resourceValues
+    filteringCharset = 'UTF-8'
+    filesMatching('fabric.mod.json') { expand resourceValues }
+}
+tasks.withType(ProcessResources).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+def javaRelease = rootProject.java_version.toInteger()
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(javaRelease)
+    withSourcesJar()
+}
+tasks.withType(JavaCompile).configureEach {
+    options.release = javaRelease
+    options.encoding = 'UTF-8'
+}
+
+def licenseFile = rootProject.file('LICENSE')
+tasks.named('jar') {
+    from(licenseFile) { rename { 'LICENSE_horsebreeder' } }
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+def modJar = tasks.named('jar')
+def sourceJar = tasks.named('sourcesJar')
+def versionAssemble = tasks.named('assemble')
+def versionCheck = tasks.named('check')
+def versionClean = tasks.named('clean')
+rootProject.tasks.named('collectJars') {
+    dependsOn versionAssemble
+    from(modJar.flatMap { it.archiveFile })
+    from(sourceJar.flatMap { it.archiveFile })
+}
+rootProject.tasks.named('check') { dependsOn versionCheck }
+rootProject.tasks.named('clean') { dependsOn versionClean }

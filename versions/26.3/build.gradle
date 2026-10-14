@@ -1,0 +1,8 @@
+ext.minecraftVersion = '26.3'
+// Only claim the game version validated by this project.
+ext.minecraftDependency = '=26.3'
+ext.fabricApiVersion = '0.162.0+26.3'
+ext.yaclVersion = '3.9.7+26.3-fabric'
+ext.modmenuVersion = '21.0.0'
+
+apply from: rootProject.file('gradle/mod.gradle')

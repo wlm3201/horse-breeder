@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "horsebreeder",
+	"version": "${version}",
+	"name": "Horse Breeder",
+	"description": "Automatically tames, breeds, grows and culls horses to keep the best stats.",
+	"license": "CC0-1.0",
+	"icon": "assets/horsebreeder/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.horsebreeder.client.HorseBreederClient"
+		],
+		"modmenu": [
+			"com.horsebreeder.client.config.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"horsebreeder.client.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "${minecraft_dependency}",
+		"java": ">=${java_version}",
+		"fabric-api": ">=${fabric_api_version}"
+	},
+	"suggests": {
+		"yet_another_config_lib_v3": "*",
+		"modmenu": "*"
+	}
+}

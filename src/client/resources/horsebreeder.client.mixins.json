@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "com.horsebreeder.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"minVersion": "0.8",
+	"client": [
+		"AbstractHorseEventMixin",
+		"AbstractHorseFeedMixin",
+		"ContainerMarkMixin",
+		"EntityGlowColorMixin",
+		"EntityPushMixin",
+		"GuiMixin",
+		"MinecraftGlowMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -1,0 +1,111 @@
+# Builds every supported Minecraft version, checks that build/libs holds exactly the jars a
+# release needs, and publishes them as a GitHub Release.
+#
+# Trigger by pushing a tag:
+#     git tag v1.0.0 && git push origin v1.0.0
+# or run it by hand from the Actions tab with an explicit version.
+#
+# The tag drives the build: `-Pversion=` makes every jar carry the tag's number, so the artifacts
+# can never disagree with the release they are attached to.
+
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, for example 1.0.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: build all Minecraft versions
+        run: ./gradlew build -Pversion=${{ steps.version.outputs.value }}
+
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: horsebreeder-${{ steps.version.outputs.value }}
+          path: build/libs/
+
+  release:
+    name: publish github release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: horsebreeder-${{ needs.build.outputs.version }}
+          path: build/libs
+
+      # A tag like v1.0.0-rc1 is treated as a pre-release; plain v1.0.0 is a full release.
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: v${{ needs.build.outputs.version }}
+          files: build/libs/*.jar
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+
+  # Optional. Skipped unless the repository has a MODRINTH_TOKEN secret and a MODRINTH_PROJECT
+  # variable, so the workflow works out of the box for GitHub-only releases.
+  modrinth:
+    name: publish to modrinth (optional)
+    needs: [build, release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: horsebreeder-${{ needs.build.outputs.version }}
+          path: build/libs
+
+      - name: publish
+        if: ${{ env.MODRINTH_TOKEN != '' }}
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        uses: kir-antipov/mc-publish@v3.3
+        with:
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-id: ${{ vars.MODRINTH_PROJECT }}
+          # Modrinth rejects a sources jar as a mod file; mc-publish's own exclusion pattern.
+          files: build/libs/!(*-@(dev|sources)).jar
+          name: v${{ needs.build.outputs.version }}
+          version: ${{ needs.build.outputs.version }}
+          version-type: release
+          loaders: fabric
+          java: 25

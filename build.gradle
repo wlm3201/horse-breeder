@@ -1,0 +1,27 @@
+plugins {
+    id 'base'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+}
+
+// One owner for the output directory; collect only this build's task outputs.
+tasks.register('collectJars', Sync) {
+    group = 'build'
+    description = 'Collects all version jars and sources into build/libs.'
+    into layout.buildDirectory.dir('libs')
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    // Gradle may ignore foreign files added to an otherwise up-to-date output
+    // directory. Always reconcile this small release directory, not just inputs.
+    outputs.upToDateWhen { false }
+}
+
+tasks.named('assemble') { dependsOn tasks.named('collectJars') }
+tasks.register('buildAll') {
+    group = 'build'
+    description = 'Builds and checks every supported Minecraft version.'
+    dependsOn tasks.named('build')
+}
+tasks.register('runClient') {
+    group = 'fabric'
+    description = 'Runs the default Minecraft 26.3 development client.'
+    dependsOn ':v26_3:runClient'
+}
